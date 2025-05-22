@@ -6,12 +6,11 @@
 indent-width = 4
 line-length  = 88
 
-# Assume Python 3.12
-target-version = "py312"
 
 # Enable Pyflakes (F) and pycodestyle (E, W) codes by default.
 # Plus, enable isort (I) for import sorting.
 # Enable various other useful rule sets.
+[lint]
 ignore = [
     "E501", # Line too long (handled by formatter)
 ]
@@ -58,8 +57,11 @@ exclude = [
     "docs/conf.py",   # Often has different styling
 ]
 
-[lint.per-file-ignores]
-"__init__.py" = [ "F401" ] # Allow unused imports in __init__.py
+    [lint.per-file-ignores]
+    "__init__.py" = [ "F401" ] # Allow unused imports in __init__.py
+
+    [lint.pydocstyle]
+    convention = "google"
 
 [format]
 # Like Black, use double quotes for strings.

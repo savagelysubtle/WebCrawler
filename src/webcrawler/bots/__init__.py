@@ -1,3 +1,5 @@
 """Expose spiders as a proper Python package."""
 
-__all__: list[str] = ["wcat_pdf_spider"]
+from .wcat_pdf_spider import WcatPdfSpider  # Import the spider
+
+__all__: list[str] = ["WcatPdfSpider"]

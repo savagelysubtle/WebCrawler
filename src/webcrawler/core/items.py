@@ -1,16 +1,15 @@
+"""
+Scrapy Items shared by spiders & pipelines.
+"""
+
+from __future__ import annotations
+
 import scrapy
 
 
 class PdfItem(scrapy.Item):
-    """
-    Represents a PDF item to be downloaded and its metadata.
-    """
+    """Simple item carrying a single PDF URL and its source page."""
 
-    file_urls = (
-        scrapy.Field()
-    )  # URL(s) of the file(s) to download (used by FilesPipeline)
-    original_url = scrapy.Field()  # The URL of the page where the PDF link was found
-    local_path = scrapy.Field()  # The local path where the PDF is stored after download
-    # Add any other metadata fields you might need, e.g.:
-    # title = scrapy.Field()
-    # publication_date = scrapy.Field()
+    file_urls: scrapy.Field = scrapy.Field()  # used by FilesPipeline
+    original_url: scrapy.Field = scrapy.Field()  # WCAT result-page URL
+    local_path: scrapy.Field = scrapy.Field()  # filled by pipeline

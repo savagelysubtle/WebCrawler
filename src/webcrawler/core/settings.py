@@ -1,73 +1,42 @@
-# Scrapy settings for WebCrawler project
-#
-# For simplicity, this file contains only settings considered important or
-# commonly used. You can find more settings consulting the documentation:
-#
-#     https://docs.scrapy.org/en/latest/topics/settings.html
-#     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-#     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
+"""
+Global Scrapy settings shared by *all* spiders.
 
-BOT_NAME = "WebCrawler"
+Only “sensible defaults” live here.  Per-run or per-spider tweaks should be
+applied via:
 
-SPIDER_MODULES = ["WebCrawler.bots"]
-NEWSPIDER_MODULE = "WebCrawler.bots"
+  • Spider.custom_settings      (highest priority after code)
+  • YAML -> main.py -> settings.set(..., priority="command")
+  • ENV variables               (Scrapy CONFIG precedence)
 
-# Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+See Scrapy docs for precedence rules.
+"""
 
-# Configure item pipelines
-# See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-ITEM_PIPELINES = {}
+from __future__ import annotations
 
-# Set settings whose default value is deprecated to a future-proof value
-REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
-TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
-FEED_EXPORT_ENCODING = "utf-8"
+BOT_NAME = "webcrawler"
 
-# Configure a delay for requests for the same website (default: 0)
-# See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
-# See also autothrottle settings and docs
-# DOWNLOAD_DELAY = 3
-# The download delay setting will honor only one of:
-# CONCURRENT_REQUESTS_PER_DOMAIN = 16
-# CONCURRENT_REQUESTS_PER_IP = 16
+SPIDER_MODULES = ["webcrawler.bots"]
+NEWSPIDER_MODULE = "webcrawler.bots"
 
-# Disable cookies (enabled by default)
-# COOKIES_ENABLED = False
+# ---- Polite crawling ---------------------------------------------------- #
+ROBOTSTXT_OBEY: bool = True  # WCAT has no robots.txt, so this is harmless. :contentReference[oaicite:8]{index=8}
+DOWNLOAD_DELAY: float = 0.3
+CONCURRENT_REQUESTS_PER_DOMAIN: int = 8
+AUTOTHROTTLE_ENABLED: bool = True
+AUTOTHROTTLE_START_DELAY: float = 0.5
+AUTOTHROTTLE_MAX_DELAY: float = 5.0
 
-# Disable Telnet Console (enabled by default)
-# TELNETCONSOLE_ENABLED = False
+# ---- Pipelines ---------------------------------------------------------- #
+ITEM_PIPELINES = {
+    "webcrawler.core.pipelines.PdfDownloadPipeline": 300,
+    "webcrawler.core.pipelines.MetadataCsvPipeline": 400,
+}  # lower number = earlier stage  :contentReference[oaicite:9]{index=9}
 
-# Override the default request headers:
-# DEFAULT_REQUEST_HEADERS = {
-#    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-#    "Accept-Language": "en",
-# }
-
-# Enable or disable spider middlewares
-# See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
-# SPIDER_MIDDLEWARES = {
-#    "WebCrawler.middlewares.WebcrawlerSpiderMiddleware": 543,
-# }
-
-# Enable or disable downloader middlewares
-# See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-# DOWNLOADER_MIDDLEWARES = {
-#    "WebCrawler.middlewares.WebcrawlerDownloaderMiddleware": 543,
-# }
-
-# Enable or disable extensions
-# See https://docs.scrapy.org/en/latest/topics/extensions.html
-# EXTENSIONS = {
-#    "scrapy.extensions.telnet.TelnetConsole": None,
-# }
-
-# Configure a custom user agent. It's good practice to identify your bot.
-# USER_AGENT can also be set per-spider in custom_settings or overridden from YAML.
-USER_AGENT = "WebCrawler (+http://www.example.com)"  # Replace with your project's URL or contact info
-
-# Default LOG_LEVEL, can be overridden in main.py or YAML config per run.
+# ---- Logging ------------------------------------------------------------ #
 LOG_LEVEL = "INFO"
+# main.py injects a RotatingFileHandler with LOG_FILE; this keeps console tidy.
 
-# FilesPipeline settings - specific path will be set in the pipeline itself using output_dir
-# FILES_STORE = 'outputs/default_files' # This is a generic default, will be made dynamic
+# ---- Async -------------------------------------------------------------- #
+TWISTED_REACTOR = (
+    "twisted.internet.asyncioreactor.AsyncioSelectorReactor"  # default anyway
+)
