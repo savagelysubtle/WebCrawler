@@ -1,0 +1,9 @@
+# uv.toml
+# This file can be used to configure uv's behavior for this project.
+# For now, we'll rely on defaults and pyproject.toml.
+# Refer to uv documentation for available options: https://astral.sh/docs/uv
+# Valid UV-specific configuration options
+required-version = ">=0.6.0"
+# Fix configuration for handling file locking issues on Windows
+cache-dir = "./.uv_cache"
+index-url = "https://pypi.org/simple/"

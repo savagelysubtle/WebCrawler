@@ -1,0 +1,18 @@
+[project]
+dependencies = [
+    "scrapy>=2.11.0",
+    "PyYAML>=6.0",
+    "ruff",
+]
+
+
+description     = "A Scrapy project for crawling websites and extracting data, with configurable runs."
+name            = "WebCrawler"
+requires-python = ">=3.12"
+version         = "0.1.0"
+
+
+[build-system]
+backend-path  = [ "." ]               # Specifies that the backend can be found in the project root
+build-backend = "uv_build"
+requires      = [ "uv-build>=0.6.0" ] # Specify a compatible version range for uv-build

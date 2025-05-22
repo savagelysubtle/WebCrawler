@@ -1,0 +1,140 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# General Scrapy Project Structure and Guidance for WebCrawler
+
+This project, `WebCrawler`, is a Python Scrapy project. Scrapy is a fast high-level web crawling and web scraping framework, used to crawl websites and extract structured data from their pages. This document outlines the general Scrapy principles and how they apply specifically to the `WebCrawler` project.
+
+## Overall Project Architecture (WebCrawler Specific)
+
+The `WebCrawler` project is designed for flexibility and clear organization, especially for managing multiple spiders and configurations.
+
+*   **Entry Point:** Crawls are initiated and managed via the `WebCrawler/main.py` script. This script is responsible for reading configurations, setting up output directories, and launching Scrapy spiders.
+*   **Configuration:** Crawl parameters (like target URLs, output directory paths, and spider-specific settings) are defined in YAML files located in `WebCrawler/configs/`. For example, `wcat_links.yaml` might define a specific crawl run.
+*   **Output Management:** Each crawl run will have its outputs (downloaded PDFs, metadata CSV files, logs) stored in a unique directory. The path to this directory is specified in the run's YAML configuration file (e.g., `output_dir: "outputs/wcat_run_01"`). All such run directories are typically located under `WebCrawler/outputs/`.
+
+## Key Project Directories and Their Roles
+
+*   `WebCrawler/`: The root directory of our project.
+    *   `main.py`: The main Python script to launch and manage crawl processes. It reads YAML configs and orchestrates spider runs.
+    *   `scrapy.cfg`: The Scrapy project configuration file. It will point to the project's settings module, likely `core.settings`.
+*   `WebCrawler/configs/`: Contains YAML configuration files. Each file can define parameters for one or more spiders or a specific crawl run, including `start_urls` and the `output_dir`.
+*   `WebCrawler/bots/`: This directory houses all the Scrapy Spider classes (e.g., `wcat_pdf_spider.py`). This is where you define the logic for how to crawl specific sites and extract initial data.
+*   `WebCrawler/core/`: This directory acts as the primary Scrapy project module. It contains:
+    *   `items.py`: Defines the structure of the data items to be scraped (e.g., `PdfItem` with fields for URL, local path, etc.).
+    *   `pipelines.py`: Defines Item Pipelines for processing scraped items. This is crucial for tasks like downloading PDF files to the correct `output_dir/pdfs/` subfolder and writing metadata to the `output_dir/metadata.csv` file.
+    *   `settings.py`: The main Scrapy settings file for the project. It configures `ITEM_PIPELINES`, `DOWNLOAD_DELAY`, `USER_AGENT`, `SPIDER_MODULES` (pointing to `WebCrawler.bots`), `NEWSPIDER_MODULE` (pointing to `WebCrawler.bots`), logging, etc.
+    *   `utils.py`: (Optional) For any utility functions shared across the project.
+*   `WebCrawler/outputs/`: The base directory where all data from crawl runs will be stored. Each run, as defined by an `output_dir` in a YAML config, will create a subdirectory here.
+    *   `[output_dir_from_yaml]/`: A specific run's output.
+        *   `pdfs/`: Stores downloaded PDF files.
+        *   `metadata.csv`: Stores metadata about the scraped items for this run.
+        *   `logs/`: Contains log files for each spider run during this specific crawl (e.g., `wcat_pdf_spider.log`).
+
+## Core Scrapy Components in WebCrawler
+
+### 1. Spiders (`WebCrawler/bots/`)
+   - **Purpose:** Spiders are classes you define for Scrapy to scrape information from a website (or a group of websites). In `WebCrawler`, these reside in the `bots` directory.
+   - **Key Elements:**
+     - `name`: A unique string that identifies the spider.
+     - `allowed_domains`: An optional list of strings containing domains this spider is allowed to crawl.
+     - `start_urls`: A list of URLs where the spider will begin crawling. **In this project, `start_urls` and other parameters like `output_dir` will often be passed to the spider's `__init__` method from `main.py` (originating from a YAML config file), rather than being hardcoded in the spider itself.** This allows for dynamic configuration per run.
+     - `parse()`: The default callback method called to handle the response for each request. It processes the response, extracts scraped data (as Items or dicts), and can yield new `scrapy.Request` objects to follow links.
+   - **Guidance:**
+     - Ensure each spider has a unique `name`.
+     - Use clear and efficient CSS selectors or XPath expressions for data extraction.
+     - For complex parsing logic, break it down into multiple callback methods.
+     - Yield `scrapy.Request` objects to follow links and data items (or dicts) for scraped data.
+
+### 2. Items (`WebCrawler/core/items.py`)
+   - **Purpose:** Items define the structure of the data you want to scrape. They work like Python dictionaries but provide field definition and type checking. For `WebCrawler`, item definitions are in `core/items.py`.
+   - **Key Elements:**
+     - Defined using `scrapy.Item` as the base class.
+     - Fields are declared using `scrapy.Field()`. For instance, a `PdfLinkItem` might have fields like `file_urls` (for Scrapy's FilesPipeline or a custom one) and `original_url`.
+   - **Guidance:**
+     - Define items clearly to represent the structure of the data (e.g., PDF metadata: URL, downloaded path, source page).
+     - Use descriptive field names.
+
+### 3. Item Pipelines (`WebCrawler/core/pipelines.py`)
+   - **Purpose:** After an item is scraped by a spider, it's passed through an Item Pipeline for processing (e.g., cleaning, validation, storing). Pipelines for `WebCrawler` are in `core/pipelines.py`.
+   - **Common Uses in `WebCrawler`:**
+     - Downloading files (like PDFs) to the run-specific `output_dir/pdfs/` directory. (Scrapy's `FilesPipeline` can be customized for this).
+     - Writing metadata for each item to the run-specific `output_dir/metadata.csv` file.
+     - Data validation.
+   - **Key Elements:**
+     - `process_item(self, item, spider)`: This method is called for every item. It must return the item or raise `DropItem` if the item should not be processed further.
+     - The `open_spider` and `close_spider` methods can be used for setup (e.g., opening the CSV file) and teardown (e.g., closing the CSV file).
+   - **Guidance:**
+     - Enable and order pipelines in `WebCrawler/core/settings.py` using the `ITEM_PIPELINES` setting. The order (lower numbers are processed first) is crucial.
+     - Ensure pipelines correctly use the `output_dir` passed to the spider (and potentially accessed via `spider.settings` or a custom attribute on the spider).
+
+### 4. Middlewares (`WebCrawler/core/middlewares.py`)
+   - **Purpose:** Middlewares hook into Scrapy's request/response processing to modify requests and responses globally. Custom middlewares are placed in `core/middlewares.py`.
+   - **Types:**
+     - **Downloader Middlewares:** Alter requests before they are sent and responses after they are received. Useful for setting proxies, user-agents, handling retries, etc.
+     - **Spider Middlewares:** Alter spider input (responses) and output (items and requests).
+   - **Guidance:**
+     - Enable middlewares in `WebCrawler/core/settings.py` (e.g., `DOWNLOADER_MIDDLEWARES`, `SPIDER_MIDDLEWARES`).
+     - Be mindful of their order and potential interactions.
+
+### 5. Settings (`WebCrawler/core/settings.py`)
+   - **Purpose:** This file allows customization of all Scrapy components. For `WebCrawler`, it's `core/settings.py`.
+   - **Key Settings for `WebCrawler`:**
+     - `BOT_NAME = 'WebCrawler'`
+     - `SPIDER_MODULES = ['WebCrawler.bots']` (Adjust the module path if `bots` is not directly under `WebCrawler` in sys.path sense, but typically Scrapy handles this well if `bots` is a package). Usually, if `core` is the project module, it would be `core.bots` if spiders are inside `core`. Given our structure, `main.py` will likely ensure `bots` is discoverable or spiders are loaded directly. *For `CrawlerProcess` used in `main.py`, these settings might be passed directly or `get_project_settings` will be used which reads from `scrapy.cfg`'s target.*
+     - `NEWSPIDER_MODULE = 'WebCrawler.bots'`
+     - `ROBOTSTXT_OBEY = True` (or False, depending on needs)
+     - `ITEM_PIPELINES`: To enable and order your custom pipelines from `core.pipelines`.
+     - `DOWNLOAD_DELAY` & `CONCURRENT_REQUESTS_PER_DOMAIN`: For politeness.
+     - `USER_AGENT`: Set a custom user agent.
+     - `LOG_LEVEL`, `LOG_FILE`: Logging configurations. These might be programmatically set/overridden in `main.py` to ensure logs go to the correct run-specific `output_dir/logs/` folder.
+     - `REQUEST_FINGERPRINTER_IMPLEMENTATION = '2.7'` (Recommended for new projects)
+   - **Guidance:**
+     - Review and configure settings according to the project's specific scraping needs.
+     - `main.py` can override settings when creating a `CrawlerProcess` instance.
+
+### 6. `scrapy.cfg` (in `WebCrawler/`)
+   - **Purpose:** The main deployment and project configuration file for Scrapy.
+   - **Key Content:**
+     - `[settings]`
+       - `default = core.settings` (This tells Scrapy where to find the project's settings module. Assuming `core` is treated as the project's main Python package/module for Scrapy).
+   - **Guidance:**
+     - This file is crucial for Scrapy to identify the project and its settings, especially when using `scrapy` command-line tools or `get_project_settings()` from a script.
+
+## Project-Specific Workflow (WebCrawler)
+
+1.  **Configure a Crawl:**
+    *   Create or modify a YAML file in `WebCrawler/configs/`.
+    *   Specify `start_urls`, the desired `output_dir` (e.g., `outputs/my_wcat_scrape_2024_06_02`), and any other necessary spider arguments or settings.
+2.  **Run the Crawl:**
+    *   Execute `python WebCrawler/main.py --config configs/your_config.yaml`.
+3.  **Execution Details:**
+    *   `main.py` reads the specified YAML configuration.
+    *   It creates the `output_dir` (and its subdirectories `pdfs/`, `logs/`) if they don't exist.
+    *   It initializes `CrawlerProcess` with project settings, potentially overriding some from the YAML (like `LOG_FILE` path).
+    *   It instantiates and schedules the relevant spider(s) from `WebCrawler/bots/`, passing arguments from the YAML config (like `start_urls`, `output_dir`).
+    *   The spider crawls and yields items.
+    *   Item Pipelines in `WebCrawler/core/pipelines.py` process these items:
+        *   PDFs are downloaded into `[output_dir]/pdfs/`.
+        *   Metadata is written row-by-row into `[output_dir]/metadata.csv`.
+    *   Logs are written to `[output_dir]/logs/[spider_name].log`.
+
+## General Scrapy Principles to Follow
+
+-   **Selectors:** Prefer CSS selectors for simplicity where possible. Use XPath for more complex selections, navigating the DOM tree, or selecting based on text content.
+-   **Data Extraction:** Aim for robust selectors that are less likely to break with minor website layout changes. Consider using item loaders for more complex extraction logic.
+-   **Logging:** Utilize Scrapy's built-in logging. In `WebCrawler`, logging is configured to be per-run and per-spider, stored within the run's specific output directory.
+-   **Error Handling:** Implement `try-except` blocks within spiders (especially in `parse` methods) and pipelines to gracefully handle potential issues (e.g., missing elements, network errors, file I/O errors).
+-   **Politeness:** Configure `DOWNLOAD_DELAY` and `CONCURRENT_REQUESTS_PER_DOMAIN` appropriately. Obey `robots.txt` (`ROBOTSTXT_OBEY`).
+
+## Development Environment
+
+-   **Dependency Management:** This project uses `uv` for package management. Dependencies are listed in `WebCrawler/pyproject.toml`. Use `uv pip install ...` and `uv pip freeze > requirements.txt` (if needed) or rely on `uv`'s lock file mechanism if `uv.lock` is used.
+-   **Linting/Formatting:** `Ruff` is used for linting and formatting, configured via `WebCrawler/ruff.toml`.
+-   **`uv` Configuration:** Project-specific `uv` settings can be placed in `WebCrawler/uv.toml`.
+
+
+
+This tailored overview should help guide your interactions and code generation within the `WebCrawler` project.
